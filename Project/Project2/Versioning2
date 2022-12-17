@@ -1,0 +1,66 @@
+#include <iostream>
+#include <string>
+#include <fstream>
+#include "Hand.h"
+#include "PlayerHand.h"
+using namespace std;
+
+int main()
+{
+    // DEVELOPMENT STAGE 1
+    // LOGIN COMPLETE
+    // I tried making it into a void function but I could not understand
+    // how to implement the class onto a main.cpp function
+    // I will look into making the login as a class function later though
+    
+    // Declarations
+    fstream data;
+    string userandpass, line;
+    string username;
+    string password;
+    unsigned int score;
+    bool check;
+    
+    // Main Menu for login
+    cout << "||====================||\n"
+         << "||      Blackjack     ||\n"
+         << "||====================||\n";
+    
+    // User username Input
+    cout << "|| Username : ";
+    getline(cin, username);
+    
+    // User password Input
+    cout << "\n|| Password : ";
+    getline(cin, password);
+    
+    // Validation Variable
+    userandpass = username + " " + password;
+    
+    // Score Initialization
+    score = 1000;
+    
+    // Data File Opening
+    data.open("data.dat", ios::in);
+    
+    // Validation Loop
+    while (getline(data, line) && !check)
+    {
+        // Comparison Validation
+        if (line.compare(userandpass) == 0)
+        {
+            check = true; // Boolean Check
+            PlayerHand P1(username, password, score); // Class Initialization
+            cout << "Welcome " << username << "!" << endl; // Welcome
+        }
+    }
+    
+    if (!check) // If Failed
+    {
+        // Error message
+        // Will look into implementing a try and catch for this
+       cout << "Username or password not found in the database. Run the program again to retry.\n";
+       // Exit program
+       exit(0);
+    }
+}

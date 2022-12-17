@@ -1,0 +1,316 @@
+// Libraries
+#include <iostream>
+#include <string>
+#include <ctime>
+#include <fstream>
+#include "Hand.h"
+#include "PlayerHand.h"
+#include "HouseHand.h"
+using namespace std;
+
+// Function Prototypes 
+
+void LoginCheck(bool check, string userandpass, string line, string username, fstream &data);
+void BetValidation(int bets, PlayerHand Player);
+void ActionValidation(int PlayerChoice, PlayerHand Player, bool PlayerHits, bool CardsDealt, int NewCard);
+
+// Template
+
+template <class T>
+T betdouble(T number)
+{
+    return number * 2;
+}
+
+// Main Code
+
+int main()
+{
+    // Declarations
+    bool CardsDealt[52];
+    int HouseCardCount = 0;
+    fstream data;
+    string userandpass, line;
+    string username;
+    string password;
+    unsigned int score;
+    bool check = false;
+    bool tryAgain = true;
+    cout << "||====================||\n"
+         << "||      Blackjack     ||\n"
+         << "||====================||\n";
+    // Exception Menu Loop
+    while (tryAgain)
+    {
+        try
+        {
+            cout << "|| Username : ";
+            getline(cin, username);
+            cout << "\n|| Password : ";
+            getline(cin, password);
+            userandpass = username + " " + password;
+            score = 1000;
+            LoginCheck(check, userandpass, line, username, data);
+            cout << "Welcome " << username << " !\n";
+            tryAgain = false;
+        }
+        catch (string exit)
+        {
+            cout << exit;
+        }
+    }
+    
+    // Classes Initialization
+    PlayerHand Player(username, password, score);
+    HouseHand House;
+    
+    // Random Sequencers
+    time_t qTime;
+    time(&qTime);
+    srand(qTime);
+    
+    // More Variable Declarations
+    int NewCard;
+    bool flag = true;
+    int bets;
+    
+    // Main Game Loop
+    
+    while (flag)
+    {
+        // First two cards given to both player & house
+        Player.Reset();
+        Player.Shuffle(CardsDealt);
+        Player.hand[0] = Player.NextCard(CardsDealt,NewCard);
+        Player.CardCountUp();
+        House.hand[0] = House.NextCard(CardsDealt, NewCard);
+        House.CardCountUp();
+        Player.hand[1] = Player.NextCard(CardsDealt,NewCard);
+        Player.CardCountUp();
+        House.hand[1] = House.NextCard(CardsDealt, NewCard);
+        House.CardCountUp();
+        
+        // More Variable Declarations
+        bool PlayerHits = true;
+        bool BetAgain = true;
+        int PlayerScore = Player.ScoreHand();
+        
+        // Welcome Message & Balance Check
+        cout << "\nWelcome to Blackjack!\n";
+        cout << Player.GetName() << " Balance : $" << Player.GetScore() << endl;
+        
+        // Bet Input Exception Loop
+        while (BetAgain)
+        {
+            try
+            {
+                cout << "Place a bet : \n";
+                cout << "Bet : ";
+                cin >> bets;
+                BetValidation(bets, Player);
+                BetAgain = false;
+            }
+            catch (string error1)
+            {
+                cout << error1;
+            }
+        }
+        
+        cout << "||=========================||\n";
+        cout << "||        Blackjack        ||\n";
+        cout << "||=========================||\n";
+        
+        // Decrease score by bet amount
+        Player.BetScore(bets);
+        
+        // Money remaining and bet output
+        cout << "//Money remaining : $" << Player.GetScore() << endl;
+        cout << "//Current Bet : $" << bets << endl << endl;
+        
+        // Action Loop
+        
+        do
+        {
+            cout << "|| House Hand : \n"
+                    << "|| ";
+            House.DisplayCard(1);
+            cout << endl;
+            cout << "|| Player Hand : \n"
+                    << "|| Score : " << Player.ScoreHand() << endl;
+            cout << "|| ";
+            Player.DisplayPlayerHand();
+            
+            int PlayerChoice;
+            bool Valid = true;
+            
+            // Action Exceptions
+            // There is a bug I have not been able to fix in the actions
+            // sometimes when inputting the right number for the action
+            // the code afterwards would not run and would loop back to the cin
+            // infinitely, however this rarely happens.
+            while (Valid)
+            {
+                try
+                {
+                    cout << "Choose an option :\n"
+                            << "1|| Hit\n"
+                            << "2|| Stand\n"
+                            << endl;
+                    cin >> PlayerChoice;
+                    ActionValidation(PlayerChoice, Player, PlayerHits, CardsDealt, NewCard);
+                    Valid = false;
+                }
+                catch (string error3)
+                {
+                    cout << error3;
+                }
+                catch (int player1)
+                {
+                    Valid = false;
+                    Player.MovesDone();
+                    int holder = Player.GetCardCount();
+                    Player.hand[holder] = Player.NextCard(CardsDealt, NewCard);
+                    Player.CardCountUp();
+                }
+                catch (char player2)
+                {
+                    Player.MovesDone();
+                    PlayerHits = false;
+                    Valid = false;
+                }
+            }
+            // Card Score Updated
+            PlayerScore = Player.ScoreHand();
+        } while (PlayerHits && PlayerScore < 22);
+        
+        // Win Ifs
+        
+        // Player Bust If
+        if (PlayerScore > 21)
+        {
+            cout << "Winner : House\n";
+            cout << "You lost $" << bets << endl;
+        }
+        else
+        {
+            int HouseScore = House.ScoreHand(); // HOUSE AI 
+            while (HouseScore < 17)
+            {
+                int holder2 = House.GetCardCount();
+                House.hand[holder2] = House.NextCard(CardsDealt, NewCard);
+                House.MovesDone();
+                HouseCardCount++;
+                HouseScore = House.ScoreHand();
+            }
+            bool HouseBust =  (HouseScore > 21);
+            // House Bust If
+            if (HouseBust)                                      
+            {
+                House.MovesDone();
+                cout << "House Busted!\n";
+                cout << "Winner : " << Player.GetName() << endl;
+                bets = betdouble(bets);
+                cout << "You gained $" << bets << endl;
+                Player.BetScorePlus(bets);
+            }
+            else
+            {
+                // Tie (Push)
+                if (PlayerScore == HouseScore)  
+                {
+                    cout << "Push!\n";
+                    cout << "No money gained." << endl;
+                    Player.BetScorePlus(bets);
+                    
+                }
+                // Player Wins
+                else if (PlayerScore > HouseScore)
+                {
+                    cout << "Winner : " << Player.GetName() << endl;
+                    bets = betdouble(bets);
+                    cout << "You gained $" << bets << endl;
+                    Player.BetScorePlus(bets);
+                }
+                // House Wins
+                else 
+                {
+                    cout << "Winner : House\n";
+                    cout << "You lost $" << bets << endl;
+                }
+            }
+        }
+        char again;
+        cout << "Continue? Y/N\n";
+        cin >> again;
+        while (!((again == 'y') ||(again == 'n')))  // Validation
+        {
+            cout << "Invalid Input. Try again.";
+            cout << "Continue? Y/N\n";
+            cin >> again;
+        }
+        if (again == 'n') // Quit If & Score Saved
+        {
+            flag = false;
+            cout << Player;
+        }
+        else // Another game
+        {
+            flag = true;
+        }
+    }
+}
+
+void LoginCheck(bool check, string userandpass, string line, string username, fstream &data)
+{
+    data.open("data.dat", ios::in);
+    while (getline(data, line) && !check)
+    {
+        if (line.compare(userandpass) == 0)
+        {
+            check = true;
+            data.close();
+        }
+    }
+    
+    // User not found
+    if (!check)
+    {
+        data.close();
+       string exit = "ERROR : Username or Password not found.\n";
+       throw exit;
+    }
+}
+
+void BetValidation(int bets, PlayerHand Player)
+{
+    string error1 = "ERROR 1 : Invalid Bet Amount. Type a valid amount between your range.\n";
+    string error2 = "ERROR 2 : Player does not have a valid amount of money to bet.\n";
+    if (bets > Player.GetScore())
+        {
+            throw error1;
+        }
+    if (bets == 0 || Player.GetScore() == 0)
+        {
+            cout << error2;
+            exit(0);
+        }
+}
+
+void ActionValidation(int PlayerChoice, PlayerHand Player, bool PlayerHits, bool CardsDealt, int NewCard)
+{
+    if (PlayerChoice == 2) // HIT
+        {
+            char player2 = '2';
+            throw player2;
+        }
+    else if (PlayerChoice == 1) // STAY
+        {
+            int player1 = 0;
+            throw player1;
+        }
+    else
+        {
+            string error3 = "ERROR : Invalid Input. Type a valid value.\n";
+            throw error3;
+        }
+}

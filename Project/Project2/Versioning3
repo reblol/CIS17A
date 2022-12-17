@@ -1,0 +1,206 @@
+#include <iostream>
+#include <string>
+#include <ctime>
+#include <fstream>
+#include "Hand.h"
+#include "PlayerHand.h"
+#include "HouseHand.h"
+using namespace std;
+
+int main()
+{
+    bool CardsDealt[52];
+    int HouseCardCount = 0;
+    fstream data;
+    string userandpass, line;
+    string username;
+    string password;
+    unsigned int score;
+    bool check = false;
+    cout << "||====================||\n"
+         << "||      Blackjack     ||\n"
+         << "||====================||\n";
+    cout << "|| Username : ";
+    getline(cin, username);
+    cout << "\n|| Password : ";
+    getline(cin, password);
+    userandpass = username + " " + password;
+    score = 1000;
+    data.open("data.dat", ios::in);
+    while (getline(data, line) && !check)
+    {
+        if (line.compare(userandpass) == 0)
+        {
+            check = true;
+            cout << "\nWelcome " << username << "!" << endl;
+        }
+    }
+    
+    // User not found
+    if (!check)
+    {
+       cout << "Username or password not found in the database. Run the program again to retry.\n";
+       exit(0);
+    }
+    
+    PlayerHand Player(username, password, score);
+    username = "placeholder";
+    password = "placeholder";
+    score = 0;
+    PlayerHand Player2(username, password, score);
+    Player.operator=(Player2);
+    HouseHand House;
+    
+    time_t qTime;
+    time(&qTime);
+    srand(qTime);
+    
+    int NewCard;
+    bool flag = true;
+    int bets;
+    
+    while (flag)
+    {
+        Player.Reset();
+        Player.Shuffle(CardsDealt);
+        Player.hand[0] = Player.NextCard(CardsDealt,NewCard);
+        Player.CardCountUp();
+        House.hand[0] = House.NextCard(CardsDealt, NewCard);
+        House.CardCountUp();
+        Player.hand[1] = Player.NextCard(CardsDealt,NewCard);
+        Player.CardCountUp();
+        House.hand[1] = House.NextCard(CardsDealt, NewCard);
+        House.CardCountUp();
+        
+        bool PlayerHits = true;
+        
+        int PlayerScore = Player.ScoreHand();
+        
+        cout << "\nWelcome to Blackjack!\n";
+        cout << Player.GetName() << " Balance : $" << Player.GetScore() << endl;
+        cout << "Place a bet : \n";
+        cout << "Bet : ";
+        cin >> bets;
+        
+        while (bets > Player.GetScore())
+        {
+            cout << "Invalid bet amount. Please try again.\n";
+            cin >> bets;
+        }
+        if (bets == 0 || Player.GetScore() == 0)
+        {
+            cout << "\nNot enough money. Restart the program to try again.\n";
+            exit(0);
+        }
+        
+        cout << "||=========================||\n";
+        cout << "||        Blackjack        ||\n";
+        cout << "||=========================||\n";
+        
+        Player.BetScore(bets);
+        
+        cout << "//Money remaining : $" << Player.GetScore() << endl;
+        cout << "//Current Bet : $" << bets << endl << endl;
+        
+        do
+        {
+            cout << "|| House Hand : \n"
+                    << "|| ";
+            House.DisplayCard(1);
+            cout << endl;
+            cout << "|| Player Hand : \n"
+                    << "|| Score : " << Player.ScoreHand() << endl;
+            cout << "|| ";
+            Player.DisplayPlayerHand();
+            
+            char PlayerChoice;
+            cout << "Choose an option :\nH) Hit\nD) Drop\n";
+            // For some reason the S button breaks the cycle of code and
+            // doesn't continue the code anymore instead it loops into an
+            // infinite cycle of code so I replaced it with a different letter
+            // and it worked. (D for Drop)
+            cin >> PlayerChoice;
+            
+            if (PlayerChoice == 'H' || PlayerChoice == 'h') // HIT
+            {
+                int holder = Player.GetCardCount();
+                Player.hand[holder] = Player.NextCard(CardsDealt, NewCard);
+                Player.CardCountUp();
+            }
+            else if (PlayerChoice == 'D' || PlayerChoice == 'd') // STAY
+            {
+                PlayerHits = false;
+            }
+            else // Invalid Input
+            {
+                cout << "Invalid Input. Try again.\n";
+            }
+            PlayerScore = Player.ScoreHand();
+        } while (PlayerHits && PlayerScore < 22);
+        
+        if (PlayerScore > 21)                     // PLAYER BUSTS
+        {
+            cout << "Winner : House\n";
+            cout << "You lost $" << bets << endl;
+        }
+        else
+        {
+            int HouseScore = House.ScoreHand(); // HOUSE AI 
+            while (HouseScore < 17)
+            {
+                int holder2 = House.GetCardCount();
+                House.hand[holder2] = House.NextCard(CardsDealt, NewCard);
+                HouseCardCount++;
+                HouseScore = House.ScoreHand();
+            }
+            bool HouseBust =  (HouseScore > 21);
+            if (HouseBust)                                      // HOUSE BUSTS
+            {
+                cout << "House Busted!\n";
+                cout << "Winner : " << Player.GetName() << endl;
+                bets = bets * 2;
+                cout << "You gained $" << bets << endl;
+                Player.BetScorePlus(bets);
+            }
+            else
+            {
+                if (PlayerScore == HouseScore)                // TIE (PUSH)
+                {
+                    cout << "Push!\n";
+                    cout << "No money gained." << endl;
+                    Player.BetScorePlus(bets);
+                    
+                }
+                else if (PlayerScore > HouseScore)            // PLAYER WINS
+                {
+                    cout << "Winner : " << Player.GetName() << endl;
+                    bets = bets * 2;
+                    cout << "You gained $" << bets << endl;
+                    Player.BetScorePlus(bets);
+                }
+                else 
+                {
+                    cout << "Winner : House\n";
+                    cout << "You lost $" << bets << endl;
+                }
+            }
+        }
+        char again;
+        cout << "Continue? Y/N\n";
+        cin >> again;
+        while (!((again == 'y') ||(again == 'n')))  // Validation
+        {
+            cout << "Invalid Input. Try again.";
+            cout << "Continue? Y/N\n";
+            cin >> again;
+        }
+        if (again == 'n') // Quit If & Score Saved
+        {
+            flag = false;
+        }
+        else // Another game
+        {
+            flag = true;
+        }
+    }
+}
